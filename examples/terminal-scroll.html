@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration Audit — Terminal</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #1c1a16;
+      --panel-bg: #242118;
+      --border: #3a3428;
+      --text: #d4c8b0;
+      --text-dim: #7a7060;
+      --text-faint: #504838;
+      --accent: #4ecca3;
+      --fn-orange: #e8805a;
+      --key: #c4a46a;
+      --string: #7ab89a;
+      --number: #d48a5a;
+      --comment: #5a5040;
+      --cursor-color: #e8805a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .top-bar {
+      width: 100%; padding: 12px 24px;
+      display: flex; align-items: center; gap: 12px;
+      background: var(--panel-bg); border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .top-bar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse-dot 2s ease-in-out infinite; }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .top-bar .title { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
+    .top-bar .timer { margin-left: auto; font-size: 0.8rem; color: var(--fn-orange); font-weight: 300; font-variant-numeric: tabular-nums; }
+
+    .terminal-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    .terminal {
+      flex: 1; position: relative; overflow: hidden;
+      mask-image: linear-gradient(to bottom, transparent 0%, black 6%, black 100%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 6%, black 100%);
+    }
+
+    .terminal-inner {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 24px 24px; display: flex; flex-direction: column; gap: 0;
+    }
+
+    .line { min-height: 1.6em; line-height: 1.6; font-size: 0.85rem; white-space: pre; }
+    .line.blank { min-height: 0.8em; }
+    .line.svg-line { min-height: auto; white-space: normal; padding: 6px 0 6px 16px; }
+    .line.svg-line svg { display: block; }
+
+    .fn-badge { display: inline-block; background: var(--fn-orange); color: var(--bg); font-size: 0.6rem; font-weight: 600; padding: 1px 5px; border-radius: 3px; letter-spacing: 0.04em; vertical-align: middle; margin-right: 6px; }
+    .fn-name { color: var(--fn-orange); font-weight: 500; }
+    .section-label { color: var(--text-dim); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .meta { color: var(--comment); font-size: 0.8rem; }
+    .k { color: var(--key); }
+    .s { color: var(--string); }
+    .n { color: var(--number); }
+    .p { color: var(--text-faint); }
+    .brace-char { color: var(--text-dim); font-weight: 300; }
+    .bracket-char { color: var(--text-dim); font-weight: 300; }
+    .model-text { color: var(--text); font-weight: 300; }
+
+    /* ─── THE CSS BRACE ─── */
+    .json-brace {
+      position: relative;
+      padding-left: 22px;
+      margin: 2px 0 2px 16px;
+    }
+
+    .json-brace::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 16px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 100' preserveAspectRatio='none'%3E%3Cpath d='M18,0 C14,0 7,0 7,8 L7,42 C7,47 0,49.5 0,50 C0,50.5 7,53 7,58 L7,92 C7,100 14,100 18,100' fill='none' stroke='%237a7060' stroke-width='1.2' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") no-repeat center;
+      background-size: 100% 100%;
+    }
+
+    .json-brace .line {
+      padding-left: 4px;
+    }
+
+    /* Nested brace — lighter */
+    .json-brace-inner {
+      position: relative;
+      padding-left: 18px;
+      margin: 1px 0 1px 0;
+    }
+
+    .json-brace-inner::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 14px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 100' preserveAspectRatio='none'%3E%3Cpath d='M18,0 C14,0 7,0 7,8 L7,42 C7,47 0,49.5 0,50 C0,50.5 7,53 7,58 L7,92 C7,100 14,100 18,100' fill='none' stroke='%23504838' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") no-repeat center;
+      background-size: 100% 100%;
+    }
+
+    /* CSS bracket for arrays */
+    .json-bracket {
+      position: relative;
+      padding-left: 14px;
+      margin: 1px 0 1px 0;
+    }
+
+    .json-bracket::before {
+      content: '';
+      position: absolute;
+      left: 2px;
+      top: 0;
+      bottom: 0;
+      width: 8px;
+      border-left: 1.2px solid #504838;
+      border-top: 1.2px solid #504838;
+      border-bottom: 1.2px solid #504838;
+      border-radius: 2px 0 0 2px;
+    }
+
+    /* ─── Cursor ─── */
+    .cursor {
+      display: inline-block; width: 0.52em; height: 1.15em;
+      background: var(--cursor-color); vertical-align: text-bottom;
+      box-shadow: 0 0 8px rgba(232, 128, 90, 0.4), 0 0 2px rgba(232, 128, 90, 0.8);
+    }
+
+    /* Scanlines */
+    .terminal::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(to bottom, transparent 0px, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);
+    }
+
+    .status-bar {
+      width: 100%; padding: 8px 24px; display: flex; align-items: center; gap: 16px;
+      background: var(--panel-bg); border-top: 1px solid var(--border);
+      font-size: 0.7rem; color: var(--text-dim); letter-spacing: 0.04em; flex-shrink: 0;
+    }
+    .status-bar .sep { color: var(--border); }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <div class="dot"></div>
+    <span class="title">Configuration Audit</span>
+    <span class="timer" id="timer">0:00</span>
+  </div>
+
+  <div class="terminal-wrap">
+    <div class="terminal">
+      <div class="terminal-inner" id="output"></div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <span>instance.atlassian.net</span>
+    <span class="sep">│</span>
+    <span id="line-count">0 lines</span>
+    <span class="sep">│</span>
+    <span id="phase">initializing</span>
+  </div>
+
+  <script>
+    // ═══════════════════════════════
+    //  SVG generators
+    // ═══════════════════════════════
+
+    function svgPie(data, size = 80) {
+      const total = data.reduce((s, d) => s + d.value, 0);
+      const cx = size / 2, cy = size / 2, r = size / 2 - 2;
+      let cumulative = 0, paths = '', legend = '';
+      data.forEach((d, i) => {
+        const sa = (cumulative / total) * Math.PI * 2 - Math.PI / 2;
+        cumulative += d.value;
+        const ea = (cumulative / total) * Math.PI * 2 - Math.PI / 2;
+        const la = d.value / total > 0.5 ? 1 : 0;
+        paths += `<path d="M${cx},${cy} L${cx + r * Math.cos(sa)},${cy + r * Math.sin(sa)} A${r},${r} 0 ${la},1 ${cx + r * Math.cos(ea)},${cy + r * Math.sin(ea)} Z" fill="${d.color}" opacity="0.85"/>`;
+        legend += `<rect x="${size + 8}" y="${i * 16 + 8}" width="8" height="8" rx="1" fill="${d.color}" opacity="0.85"/>`;
+        legend += `<text x="${size + 20}" y="${i * 16 + 16}" fill="#7a7060" font-family="IBM Plex Mono" font-size="9">${d.label} (${d.value})</text>`;
+      });
+      const w = size + 170, h = Math.max(size, data.length * 16 + 16);
+      return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${paths}${legend}</svg>`;
+    }
+
+    function svgBarH(data) {
+      const barW = 200, barH = 12;
+      let rows = '';
+      data.forEach((d, i) => {
+        const y = i * (barH + 14), w = (d.value / d.max) * barW;
+        rows += `<text x="0" y="${y + barH - 1}" fill="#7a7060" font-family="IBM Plex Mono" font-size="9">${d.label}</text>`;
+        rows += `<rect x="110" y="${y}" width="${barW}" height="${barH}" rx="2" fill="#2c2820"/>`;
+        rows += `<rect x="110" y="${y}" width="${w}" height="${barH}" rx="2" fill="${d.color}" opacity="0.8"/>`;
+        rows += `<text x="${114 + barW}" y="${y + barH - 1}" fill="#5a5040" font-family="IBM Plex Mono" font-size="9">${d.value}</text>`;
+      });
+      return `<svg width="370" height="${data.length * (barH + 14)}" viewBox="0 0 370 ${data.length * (barH + 14)}" xmlns="http://www.w3.org/2000/svg">${rows}</svg>`;
+    }
+
+    function svgDependencyGraph() {
+      const nodes = [
+        { id: 'open', x: 20, y: 30, c: '#4ecca3' },
+        { id: 'in progress', x: 130, y: 10, c: '#c4a46a' },
+        { id: 'review', x: 130, y: 52, c: '#c4a46a' },
+        { id: 'blocked', x: 260, y: 52, c: '#e8805a' },
+        { id: 'done', x: 360, y: 30, c: '#7ab89a' },
+      ];
+      const edges = [['open','in progress'],['open','review'],['in progress','review'],['in progress','done'],['review','blocked'],['review','done'],['blocked','in progress']];
+      const nm = {}; nodes.forEach(n => nm[n.id] = n);
+      let svg = '';
+      edges.forEach(([a, b]) => {
+        const na = nm[a], nb = nm[b], nw = a.length * 7 + 16;
+        svg += `<line x1="${na.x + nw}" y1="${na.y + 8}" x2="${nb.x}" y2="${nb.y + 8}" stroke="#3a3428" stroke-width="1"/>`;
+      });
+      nodes.forEach(n => {
+        const w = n.id.length * 7 + 16;
+        svg += `<rect x="${n.x}" y="${n.y}" width="${w}" height="17" rx="3" fill="${n.c}" opacity="0.15" stroke="${n.c}" stroke-width="0.7"/>`;
+        svg += `<text x="${n.x + 8}" y="${n.y + 12}" fill="${n.c}" font-family="IBM Plex Mono" font-size="8.5" font-weight="500">${n.id}</text>`;
+      });
+      return `<svg width="430" height="78" viewBox="0 0 430 78" xmlns="http://www.w3.org/2000/svg">${svg}</svg>`;
+    }
+
+    function svgMonthlyBars() {
+      const months = ['M','A','M','J','J','A','S','O','N','D','J','F'];
+      const vals = [12,8,23,31,18,9,14,42,28,15,7,3];
+      const max = Math.max(...vals);
+      const bw = 22, gap = 4, h = 50;
+      let bars = '';
+      months.forEach((m, i) => {
+        const x = i * (bw + gap), bh = (vals[i] / max) * (h - 14);
+        bars += `<rect x="${x}" y="${h - bh - 12}" width="${bw}" height="${bh}" rx="2" fill="${vals[i] > 25 ? '#e8805a' : '#4ecca3'}" opacity="0.7"/>`;
+        bars += `<text x="${x + bw/2}" y="${h}" fill="#5a5040" font-family="IBM Plex Mono" font-size="7.5" text-anchor="middle">${m}</text>`;
+        bars += `<text x="${x + bw/2}" y="${h - bh - 15}" fill="#7a7060" font-family="IBM Plex Mono" font-size="7" text-anchor="middle">${vals[i]}</text>`;
+      });
+      return `<svg width="${months.length * (bw + gap)}" height="${h + 4}" viewBox="0 0 ${months.length * (bw + gap)} ${h + 4}" xmlns="http://www.w3.org/2000/svg">${bars}</svg>`;
+    }
+
+    function svgIssueVolume() {
+      const labels = ['Story','Bug','Task','Epic','Sub-task','Incident','Change','SR'];
+      const values = [342,218,189,47,156,88,34,71];
+      const max = Math.max(...values);
+      let rows = '';
+      labels.forEach((l, i) => {
+        const y = i * 18, w = (values[i] / max) * 180;
+        rows += `<text x="0" y="${y + 11}" fill="#7a7060" font-family="IBM Plex Mono" font-size="8.5">${l}</text>`;
+        rows += `<rect x="72" y="${y + 1}" width="180" height="12" rx="1.5" fill="#2c2820"/>`;
+        rows += `<rect x="72" y="${y + 1}" width="${w}" height="12" rx="1.5" fill="#4ecca3" opacity="0.65"/>`;
+        rows += `<text x="258" y="${y + 11}" fill="#5a5040" font-family="IBM Plex Mono" font-size="8.5">${values[i]}</text>`;
+      });
+      return `<svg width="290" height="${labels.length * 18}" viewBox="0 0 290 ${labels.length * 18}" xmlns="http://www.w3.org/2000/svg">${rows}</svg>`;
+    }
+
+    // ═══════════════════════════════
+    //  Script
+    // ═══════════════════════════════
+    // Types: fn-header, section, meta, json-block, json-bracket, model, svg, blank
+
+    const script = [
+      { type: 'fn-header', name: 'jira_api', delay: 400 },
+      { type: 'section', text: '  ▸ Request', delay: 150 },
+      { type: 'section', text: '  ▾ Result', delay: 300 },
+      { type: 'meta', text: '  --- /workspace/raw/server_info.json (692 bytes)', delay: 100 },
+      { type: 'json-block', lines: [
+        '"baseUrl": "https://instance.atlassian.net",',
+        '"displayUrl": "https://instance.atlassian.net",',
+        '"displayUrlServicedeskHelpCenter": "https://instance.atlassian.net",',
+        '"displayUrlCSMHelpSeeker": "https://instance.atlassian.net",',
+        '"displayUrlConfluence": "https://instance.atlassian.net"',
+      ], delay: 100 },
+      { type: 'blank', delay: 200 },
+
+      { type: 'fn-header', name: 'jira_api', delay: 500 },
+      { type: 'section', text: '  ▾ Result', delay: 200 },
+      { type: 'meta', text: '  --- /workspace/raw/projects.json (34201 bytes) | 28 projects', delay: 100 },
+      { type: 'json-block', lines: [
+        '"saved": "/workspace/raw/projects.json",',
+        '"count": 28,',
+        '"size_bytes": 34201',
+      ], delay: 80 },
+      { type: 'blank', delay: 150 },
+
+      { type: 'model', text: 'Catalogued 28 projects. Breaking down by type:', delay: 180 },
+      { type: 'svg', gen: () => svgPie([
+        { value: 14, color: '#4ecca3', label: 'Software' },
+        { value: 6, color: '#c4a46a', label: 'Service Desk' },
+        { value: 5, color: '#e8805a', label: 'Business' },
+        { value: 3, color: '#7ab89a', label: 'Ops' },
+      ]), delay: 80 },
+      { type: 'blank', delay: 250 },
+
+      { type: 'fn-header', name: 'jira_api', delay: 400 },
+      { type: 'section', text: '  ▾ Result', delay: 200 },
+      { type: 'meta', text: '  --- /workspace/raw/workflows.json (11961 bytes) | 50 workflows', delay: 100 },
+      { type: 'json-block', lines: [
+        '"saved": "/workspace/raw/workflows.json",',
+        '"count": 50,',
+        '"size_bytes": 11961,',
+        '"item_keys": ["id", "description", "transitions", "statuses"]',
+      ], delay: 80 },
+      { type: 'blank', delay: 150 },
+
+      { type: 'model', text: 'Detected 8 duplicate workflow transition graphs. Canonical path:', delay: 180 },
+      { type: 'svg', gen: () => svgDependencyGraph(), delay: 60 },
+      { type: 'model', text: '  ↑ 8 workflows map to this identical structure', delay: 80 },
+      { type: 'blank', delay: 300 },
+
+      { type: 'fn-header', name: 'workspace_read', delay: 500 },
+      { type: 'section', text: '  ▾ Result', delay: 200 },
+      { type: 'meta', text: '  --- /workspace/raw/fields.json (269748 bytes) | 565 fields', delay: 100 },
+      { type: 'json-bracket', lines: [
+        { type: 'brace', lines: [
+          '"id": "statusCategory",',
+          '"key": "statusCategory",',
+          '"name": "Status Category",',
+          '"custom": false,',
+          '"orderable": true,',
+          '"navigable": true,',
+          '"searchable": true',
+        ]},
+        { type: 'brace', lines: [
+          '"id": "customfield_10042",',
+          '"name": "Story Points",',
+          '"custom": true',
+        ]},
+        '...',
+      ], delay: 80 },
+      { type: 'blank', delay: 150 },
+
+      { type: 'model', text: 'Scanning 565 fields. Custom vs system:', delay: 150 },
+      { type: 'svg', gen: () => svgPie([
+        { value: 423, color: '#e8805a', label: 'Custom' },
+        { value: 142, color: '#4ecca3', label: 'System' },
+      ], 64), delay: 60 },
+      { type: 'blank', delay: 200 },
+
+      { type: 'fn-header', name: 'jira_api', delay: 400 },
+      { type: 'section', text: '  ▾ Result', delay: 200 },
+      { type: 'meta', text: '  --- /workspace/raw/screens.json (48201 bytes) | 87 screens', delay: 100 },
+      { type: 'json-block', lines: [
+        '"saved": "/workspace/raw/screens.json",',
+        '"count": 87,',
+        '"size_bytes": 48201',
+      ], delay: 80 },
+      { type: 'blank', delay: 150 },
+
+      { type: 'model', text: 'Cross-referencing 423 custom fields against 87 screens...', delay: 200 },
+      { type: 'blank', delay: 400 },
+
+      { type: 'model', text: 'Orphan analysis. Field attachment by screen count:', delay: 180 },
+      { type: 'svg', gen: () => svgBarH([
+        { label: '0 screens', value: 142, max: 423, color: '#e8805a' },
+        { label: '1 screen', value: 98, max: 423, color: '#c4a46a' },
+        { label: '2-3 screens', value: 117, max: 423, color: '#7ab89a' },
+        { label: '4+ screens', value: 66, max: 423, color: '#4ecca3' },
+      ]), delay: 60 },
+      { type: 'blank', delay: 200 },
+
+      { type: 'model', text: '142 custom fields exist on zero screens. Dead weight.', delay: 150 },
+      { type: 'blank', delay: 400 },
+
+      { type: 'fn-header', name: 'jira_api', delay: 400 },
+      { type: 'section', text: '  ▾ Result', delay: 200 },
+      { type: 'meta', text: '  --- /workspace/raw/issue_types.json (8840 bytes) | 34 types', delay: 100 },
+      { type: 'json-block', lines: [
+        '"saved": "/workspace/raw/issue_types.json",',
+        '"count": 34,',
+        '"size_bytes": 8840',
+      ], delay: 80 },
+      { type: 'blank', delay: 150 },
+
+      { type: 'model', text: 'Issue volume by type (last 90 days):', delay: 150 },
+      { type: 'svg', gen: () => svgIssueVolume(), delay: 60 },
+      { type: 'blank', delay: 300 },
+
+      { type: 'fn-header', name: 'jira_api', delay: 400 },
+      { type: 'section', text: '  ▾ Result', delay: 200 },
+      { type: 'meta', text: '  --- /workspace/raw/permissions.json (22104 bytes) | 12 schemes', delay: 100 },
+      { type: 'json-block', lines: [
+        '"saved": "/workspace/raw/permissions.json",',
+        '"count": 12,',
+        '"size_bytes": 22104',
+      ], delay: 80 },
+      { type: 'blank', delay: 200 },
+
+      { type: 'model', text: 'Permission scheme usage across 28 projects:', delay: 150 },
+      { type: 'svg', gen: () => svgPie([
+        { value: 18, color: '#4ecca3', label: 'Default Scheme' },
+        { value: 4, color: '#c4a46a', label: 'Restricted Ops' },
+        { value: 3, color: '#e8805a', label: 'Service Desk' },
+        { value: 2, color: '#7ab89a', label: 'External' },
+        { value: 1, color: '#d4c8b0', label: 'Legacy (unused)' },
+      ]), delay: 60 },
+      { type: 'blank', delay: 200 },
+
+      { type: 'model', text: '18 of 28 projects share the default scheme. 1 legacy scheme orphaned.', delay: 150 },
+      { type: 'blank', delay: 250 },
+
+      { type: 'model', text: 'Field creation velocity (last 12 months):', delay: 200 },
+      { type: 'svg', gen: () => svgMonthlyBars(), delay: 60 },
+      { type: 'model', text: '  ↑ Spikes in Jun and Oct correlate with migration sprints', delay: 80 },
+      { type: 'blank', delay: 400 },
+
+      { type: 'model', text: 'Preliminary findings:', delay: 250 },
+      { type: 'model', text: '  • 142 orphaned custom fields (33.6% of total)', delay: 120 },
+      { type: 'model', text: '  • 23 duplicate field names across contexts', delay: 100 },
+      { type: 'model', text: '  • 8 workflows with identical transition maps', delay: 100 },
+      { type: 'model', text: '  • 1 orphaned permission scheme (Legacy)', delay: 100 },
+      { type: 'model', text: '  • Field sprawl accelerating — 42 fields created in Oct alone', delay: 100 },
+      { type: 'blank', delay: 400 },
+      { type: 'model', text: 'Moving to Process Mining phase...', delay: 200 },
+    ];
+
+
+    // ═══════════════════════════════
+    //  Rendering engine
+    // ═══════════════════════════════
+
+    const outputEl = document.getElementById('output');
+    const timerEl = document.getElementById('timer');
+    const lineCountEl = document.getElementById('line-count');
+    const phaseEl = document.getElementById('phase');
+
+    let totalLines = 0;
+    const startTime = Date.now();
+
+    setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      timerEl.textContent = `${Math.floor(elapsed / 60)}:${(elapsed % 60).toString().padStart(2, '0')}`;
+    }, 1000);
+
+    const cursorEl = document.createElement('span');
+    cursorEl.className = 'cursor';
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+    function scrollToBottom() { outputEl.parentElement.scrollTop = outputEl.parentElement.scrollHeight; }
+
+    function placeCursor(el) {
+      el.appendChild(cursorEl);
+      scrollToBottom();
+    }
+
+    function addLine(parent, cls) {
+      const div = document.createElement('div');
+      div.className = 'line' + (cls ? ' ' + cls : '');
+      parent.appendChild(div);
+      totalLines++;
+      lineCountEl.textContent = `${totalLines} lines`;
+      return div;
+    }
+
+    function colorize(plain) {
+      return plain
+        .replace(/"([^"]*)"(\s*:)/g, '<span class="k">"$1"</span>$2')
+        .replace(/"([^"]*)"/g, '<span class="s">"$1"</span>')
+        .replace(/:\s*(\d+)/g, ': <span class="n">$1</span>')
+        .replace(/:\s*(true|false)/g, ': <span class="n">$1</span>')
+        .replace(/([\[\]])/g, '<span class="bracket-char">$1</span>')
+        .replace(/,(?![^"]*")/g, '<span class="p">,</span>')
+        .replace(/\.\.\.$/g, '<span class="p">...</span>');
+    }
+
+    async function paintChars(el, text, charDelay = 8) {
+      const reveal = document.createElement('span');
+      el.appendChild(reveal);
+      placeCursor(el);
+      let i = 0;
+      while (i < text.length) {
+        const chunk = Math.min(2 + Math.floor(Math.random() * 3), text.length - i);
+        reveal.textContent += text.slice(i, i + chunk);
+        i += chunk;
+        placeCursor(el);
+        await sleep(charDelay + Math.random() * 6);
+      }
+      return reveal;
+    }
+
+    async function paintCodeLine(parent, text) {
+      const line = addLine(parent);
+      const reveal = await paintChars(line, text, 7);
+      line.removeChild(reveal);
+      if (cursorEl.parentElement === line) line.removeChild(cursorEl);
+      const colored = document.createElement('span');
+      colored.innerHTML = colorize(text);
+      line.appendChild(colored);
+      placeCursor(line);
+    }
+
+    async function paintWords(el, text) {
+      const words = text.split(' ');
+      const span = document.createElement('span');
+      span.className = 'model-text';
+      el.appendChild(span);
+      placeCursor(el);
+      for (let i = 0; i < words.length; i++) {
+        span.textContent += (i > 0 ? ' ' : '') + words[i];
+        placeCursor(el);
+        await sleep(18 + Math.random() * 30);
+      }
+    }
+
+    async function paintFnHeader(el, name) {
+      const badge = document.createElement('span');
+      badge.className = 'fn-badge';
+      badge.textContent = 'fn';
+      el.appendChild(badge);
+      placeCursor(el);
+      await sleep(60);
+      const ns = document.createElement('span');
+      ns.className = 'fn-name';
+      el.appendChild(ns);
+      placeCursor(el);
+      for (const ch of name) {
+        ns.textContent += ch;
+        placeCursor(el);
+        await sleep(20 + Math.random() * 15);
+      }
+    }
+
+    // Paint an entire json-block with CSS brace
+    async function paintJsonBlock(lines, cls = 'json-brace') {
+      const container = document.createElement('div');
+      container.className = cls;
+      outputEl.appendChild(container);
+
+      for (const text of lines) {
+        await paintCodeLine(container, text);
+        await sleep(25 + Math.random() * 15);
+      }
+    }
+
+    // Paint a json-bracket that can contain nested brace blocks
+    async function paintJsonBracket(items) {
+      const container = document.createElement('div');
+      container.className = 'json-bracket';
+      outputEl.appendChild(container);
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (typeof item === 'string') {
+          // simple line (like "...")
+          await paintCodeLine(container, item);
+          await sleep(20);
+        } else if (item.type === 'brace') {
+          // nested object brace
+          const inner = document.createElement('div');
+          inner.className = 'json-brace-inner';
+          container.appendChild(inner);
+          for (const text of item.lines) {
+            await paintCodeLine(inner, text);
+            await sleep(25 + Math.random() * 15);
+          }
+          // comma between objects
+          if (i < items.length - 1 && typeof items[i + 1] !== 'string') {
+            await sleep(40);
+          }
+        }
+      }
+    }
+
+
+    // ═══════════════════════════════
+    //  Main loop
+    // ═══════════════════════════════
+
+    async function run() {
+      phaseEl.textContent = 'scanning';
+
+      for (const entry of script) {
+        await sleep(entry.delay || 100);
+
+        switch (entry.type) {
+          case 'fn-header': {
+            const line = addLine(outputEl);
+            await paintFnHeader(line, entry.name);
+            break;
+          }
+
+          case 'section': {
+            const line = addLine(outputEl);
+            await paintChars(line, entry.text, 10);
+            line.innerHTML = `<span class="section-label">${line.textContent}</span>`;
+            placeCursor(line);
+            break;
+          }
+
+          case 'meta': {
+            const line = addLine(outputEl);
+            await paintChars(line, entry.text, 5);
+            line.innerHTML = `<span class="meta">${line.textContent}</span>`;
+            placeCursor(line);
+            break;
+          }
+
+          case 'json-block': {
+            await paintJsonBlock(entry.lines);
+            break;
+          }
+
+          case 'json-bracket': {
+            await paintJsonBracket(entry.lines);
+            break;
+          }
+
+          case 'model': {
+            const line = addLine(outputEl);
+            await paintWords(line, entry.text);
+            break;
+          }
+
+          case 'svg': {
+            const line = addLine(outputEl, 'svg-line');
+            line.innerHTML = entry.gen();
+            scrollToBottom();
+            break;
+          }
+
+          case 'blank': {
+            addLine(outputEl, 'blank');
+            scrollToBottom();
+            break;
+          }
+        }
+
+        scrollToBottom();
+      }
+
+      phaseEl.textContent = 'phase 2 — process mining';
+      const finalLine = addLine(outputEl);
+      placeCursor(finalLine);
+    }
+
+    run();
+  </script>
+</body>
+</html>
