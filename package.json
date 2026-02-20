@@ -1,0 +1,79 @@
+{
+  "name": "postmodern-theme",
+  "version": "0.1.0",
+  "description": "A warm, HSL-based design system with dark/twilight/light modes, ordered dithering, and full color customization",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/react/index.d.ts",
+        "default": "./dist/react/index.js"
+      },
+      "require": {
+        "types": "./dist/react/index.d.cts",
+        "default": "./dist/react/index.cjs"
+      }
+    },
+    "./css": "./src/css/base.css",
+    "./tailwind": "./tailwind.preset.js"
+  },
+  "files": [
+    "dist",
+    "src/css",
+    "tailwind.preset.js"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "zustand": ">=4"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "zustand": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "react": "^18.2.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0",
+    "zustand": "^4.5.0"
+  },
+  "keywords": [
+    "theme",
+    "design-system",
+    "dark-mode",
+    "twilight",
+    "dithering",
+    "hsl",
+    "color-harmony",
+    "tailwindcss",
+    "react"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aaronsb/postmodern-theme"
+  }
+}

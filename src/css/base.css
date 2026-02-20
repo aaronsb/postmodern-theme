@@ -1,0 +1,210 @@
+/**
+ * Postmodern Theme — Base CSS
+ *
+ * CSS custom properties, mode classes, dither patterns, and base styles.
+ * Import this in your app: import 'postmodern-theme/css'
+ *
+ * Variables are dynamically computed by the harmony engine (JS), but sensible
+ * defaults are provided here so the theme works even without JS initialization.
+ */
+
+/* ===== ROOT VARIABLES ===== */
+
+:root {
+  /* Primary accent — warm amber (default) */
+  --primary-h: 18;
+  --primary-s: 100%;
+  --primary-l: 60%;
+
+  /* Background tone (defaults for light mode, overridden by JS) */
+  --bg-h: 18;
+  --bg-s: 8%;
+  --bg-l: 94%;
+
+  /* Foreground tone */
+  --fg-h: 18;
+  --fg-s: 15%;
+  --fg-l: 15%;
+
+  /* Border tone */
+  --border-h: 18;
+  --border-s: 10%;
+  --border-l: 79%;
+
+  /* Surface saturation and step */
+  --surface-s: 8%;
+  --surface-step: -3%;
+
+  /* Squared-off borders (postmodern brutalist aesthetic) */
+  --radius: 2px;
+
+  /* Typography (overridden by JS when font settings loaded) */
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "IBM Plex Sans Condensed", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Status colors (constant across modes) */
+  --status-active: 145 65% 45%;
+  --status-warning: 40 85% 55%;
+  --status-info: 210 70% 55%;
+
+  /* Dither pattern size */
+  --dither-size: 4px;
+
+  /* ===== Derived semantic tokens ===== */
+  --background: var(--bg-h) var(--bg-s) var(--bg-l);
+  --foreground: var(--fg-h) var(--fg-s) var(--fg-l);
+  --card: var(--bg-h) var(--surface-s) calc(var(--bg-l) + var(--surface-step));
+  --card-foreground: var(--fg-h) var(--fg-s) var(--fg-l);
+  --popover: var(--bg-h) var(--bg-s) var(--bg-l);
+  --popover-foreground: var(--fg-h) var(--fg-s) var(--fg-l);
+  --primary: var(--primary-h) var(--primary-s) var(--primary-l);
+  --primary-foreground: var(--bg-h) var(--fg-s) 10%;
+  --secondary: var(--bg-h) calc(var(--bg-s) * 0.75) calc(var(--bg-l) + var(--surface-step) * 2);
+  --secondary-foreground: var(--fg-h) var(--fg-s) calc(var(--fg-l) + 5%);
+  --muted: var(--bg-h) calc(var(--bg-s) * 0.75) calc(var(--bg-l) + var(--surface-step) * 2);
+  --muted-foreground: var(--fg-h) calc(var(--fg-s) * 0.7) calc((var(--fg-l) + 50%) / 2);
+  --accent: var(--bg-h) var(--bg-s) calc(var(--bg-l) + var(--surface-step) * 3);
+  --accent-foreground: var(--fg-h) var(--fg-s) var(--fg-l);
+  --border: var(--border-h) var(--border-s) var(--border-l);
+  --input: var(--border-h) var(--border-s) var(--border-l);
+  --ring: var(--primary-h) var(--primary-s) var(--primary-l);
+
+  /* Surface hierarchy */
+  --surface-1: var(--bg-h) var(--surface-s) calc(var(--bg-l) + var(--surface-step));
+  --surface-2: var(--bg-h) var(--surface-s) calc(var(--bg-l) + var(--surface-step) * 2);
+  --surface-3: var(--bg-h) var(--surface-s) calc(var(--bg-l) + var(--surface-step) * 3);
+}
+
+/* ===== DARK MODE ===== */
+.dark {
+  --bg-h: 18;
+  --bg-s: 8%;
+  --bg-l: 10%;
+  --fg-h: 18;
+  --fg-s: 15%;
+  --fg-l: 85%;
+  --border-h: 18;
+  --border-s: 10%;
+  --border-l: 22%;
+  --surface-s: 8%;
+  --surface-step: 3%;
+}
+
+/* ===== TWILIGHT MODE ===== */
+.twilight {
+  --bg-h: 18;
+  --bg-s: 15%;
+  --bg-l: 16%;
+  --fg-h: 18;
+  --fg-s: 15%;
+  --fg-l: 96%;
+  --border-h: 18;
+  --border-s: 17%;
+  --border-l: 31%;
+  --surface-s: 18%;
+  --surface-step: 5%;
+}
+
+/* ===== BASE ELEMENT STYLES ===== */
+
+body {
+  font-family: var(--font-body);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+code, pre, .font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Themed scrollbars */
+* {
+  scrollbar-color: hsl(var(--border)) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: var(--radius); }
+*::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
+*::-webkit-scrollbar-corner { background: transparent; }
+
+/* Form accent colors */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"] {
+  accent-color: hsl(var(--primary));
+}
+
+/* ===== ORDERED DITHERING PATTERNS ===== */
+/* Based on Bayer matrix patterns for retro/postmodern aesthetic */
+
+body.dither-25::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect x='0' y='0' width='1' height='1' fill='%23ffffff'/%3E%3C/svg%3E");
+  background-size: var(--dither-size) var(--dither-size);
+  opacity: 0.03;
+}
+
+body.dither-50::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect x='0' y='0' width='1' height='1' fill='%23ffffff'/%3E%3Crect x='1' y='1' width='1' height='1' fill='%23ffffff'/%3E%3C/svg%3E");
+  background-size: var(--dither-size) var(--dither-size);
+  opacity: 0.04;
+}
+
+body.dither-75::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect x='0' y='0' width='4' height='4' fill='%23ffffff'/%3E%3Crect x='0' y='0' width='1' height='1' fill='%23000000'/%3E%3C/svg%3E");
+  background-size: var(--dither-size) var(--dither-size);
+  opacity: 0.05;
+}
+
+/* ===== LOADING ANIMATION ===== */
+
+@keyframes pulse-dot {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+.loading-dots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.loading-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+.loading-dots span:nth-child(1) { animation-delay: 0s; }
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
